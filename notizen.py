@@ -6,7 +6,7 @@ from getpass import getpass
 
 
 def clear():
-    os.system("clear")
+    os.system("cls" if os.name == "nt" else "clear")
 
 
 def loading(text="Lade", dauer=1):
@@ -53,29 +53,52 @@ def passwort_pruefen():
     return False
 
 
-if not os.path.exists("passwort.hash"):
-    passwort_erstellen()
-else:
-    if not passwort_pruefen():
-        exit()
+def lese_notizen():
+    if not os.path.exists("notizen.txt"):
+        return []
+    with open("notizen.txt", "r") as file:
+        return file.readlines()
 
-stunde = datetime.now().hour
-if 5 <= stunde < 12:
-    begruessung = "Guten Morgen"
-elif 12 <= stunde < 18:
-    begruessung = "Guten Tag"
-else:
-    begruessung = "Gute Nacht"
 
-title = "Noder"
-version = "0.1.0"
+def schreibe_notizen(notizen):
+    with open("notizen.txt", "w") as file:
+        file.writelines(notizen)
 
-clear()
-print("=" * 30)
-print(f"{title} v{version}")
-print("=" * 30)
 
-logo = r"""
+def zeige_status():
+    try:
+        anzahl = len(lese_notizen())
+    except:
+        anzahl = 0
+    uhrzeit = datetime.now().strftime("%H:%M")
+    print(f"Notizen: {anzahl} | Uhrzeit: {uhrzeit}")
+    print("-" * 30)
+
+
+def main():
+    if not os.path.exists("passwort.hash"):
+        passwort_erstellen()
+    else:
+        if not passwort_pruefen():
+            exit()
+
+    stunde = datetime.now().hour
+    if 5 <= stunde < 12:
+        begruessung = "Guten Morgen"
+    elif 12 <= stunde < 18:
+        begruessung = "Guten Tag"
+    else:
+        begruessung = "Gute Nacht"
+
+    title = "Noder"
+    version = "0.1"
+
+    clear()
+    print("=" * 30)
+    print(f"{title} v{version}")
+    print("=" * 30)
+
+    logo = r"""
 ███╗   ██╗ ██████╗ ██████╗ ███████╗██████╗
 ████╗  ██║██╔═══██╗██╔══██╗██╔════╝██╔══██╗
 ██╔██╗ ██║██║   ██║██║  ██║█████╗  ██████╔╝
@@ -83,80 +106,73 @@ logo = r"""
 ██║ ╚████║╚██████╔╝██████╔╝███████╗██║  ██║
 ╚═╝  ╚═══╝ ╚═════╝ ╚═════╝ ╚══════╝╚═╝  ╚═╝
 """
+    print(logo)
+    print("=" * 40)
+    print(begruessung)
 
-print(logo)
-print("=" * 40)
-print(begruessung)
+    loading("Starte Noder")
+    time.sleep(0.5)
 
-loading("Starte Noder")
-time.sleep(0.5)
+    while True:
+        clear()
+        print("=== Noder Menü ===")
+        zeige_status()
+        print("1) Notiz erstellen")
+        print("2) Notiz löschen")
+        print("3) Verlauf anzeigen")
+        print("4) Schliessen")
+        print("-" * 30)
 
-while True:
-    clear()
-    print("-" * 30)
-    print("1) Notiz erstellen")
-    print("2) Notiz löschen")
-    print("3) Notizen durchsuchen")
-    print("4) Schliessen")
-    print("-" * 30)
+        auswahl = input("Wählen sie aus: ")
 
-    try:
-        anzahl = len(open("notizen.txt").readlines())
-    except FileNotFoundError:
-        anzahl = 0
+        if auswahl == "1":
+            titel = input("Titel der Notiz: ")
+            inhalt = input("Text der Notiz: ")
+            zeitstempel = datetime.now().strftime("%d.%m.%Y %H:%M")
+            with open("notizen.txt", "a") as file:
+                file.write(f"[{zeitstempel}] {titel}: {inhalt}\n")
+            loading("Speichere Notiz")
+            input("Notiz gespeichert – Enter drücken")
 
-    uhrzeit = datetime.now().strftime("%H:%M")
-    print(f"Notizen: {anzahl} | Uhrzeit: {uhrzeit}")
-
-    auswahl = input("\nWählen sie aus: ")
-
-    if auswahl == "1":
-        notiz = input("Gib deine Notiz ein: ")
-        zeitstempel = datetime.now().strftime("%d.%m.%Y %H:%M")
-        with open("notizen.txt", "a") as file:
-            file.write(f"[{zeitstempel}] {notiz}\n")
-        loading("Speichere Notiz")
-        input("Notiz gespeichert – Enter drücken")
-
-    elif auswahl == "2":
-        try:
-            with open("notizen.txt", "r") as file:
-                notizen = file.readlines()
+        elif auswahl == "2":
+            notizen = lese_notizen()
             if not notizen:
                 print("Keine Notizen vorhanden.")
             else:
                 for i, n in enumerate(notizen, start=1):
                     print(f"{i}. {n.strip()}")
-                nr = int(input("\nNummer löschen: ")) - 1
-                del notizen[nr]
-                with open("notizen.txt", "w") as file:
-                    file.writelines(notizen)
-                print("Notiz gelöscht")
-        except (FileNotFoundError, ValueError, IndexError):
+                try:
+                    nr = int(input("\nNummer löschen: ")) - 1
+                    del notizen[nr]
+                    schreibe_notizen(notizen)
+                    print("Notiz gelöscht")
+                except (ValueError, IndexError):
+                    print("Ungültige Eingabe")
+            input("Enter drücken")
+
+        elif auswahl == "3":
+            notizen = lese_notizen()
+            if not notizen:
+                print("Keine Notizen vorhanden.")
+            else:
+                print("\n=== Verlauf ===")
+                for i, n in enumerate(notizen, start=1):
+                    try:
+                        zeit, rest = n.strip().split("] ", 1)
+                        titel, text = rest.split(": ", 1)
+                        print(f"{i}. {zeit}] \033[1m{titel}\033[0m: {text}")
+                    except ValueError:
+                        print(f"{i}. {n.strip()}")
+            input("\nEnter drücken")
+
+        elif auswahl == "4":
+            loading("Beende Programm")
+            break
+
+        else:
             print("Ungültige Eingabe")
-        input("Enter drücken")
+            input("Enter drücken")
 
-    elif auswahl == "3":
-        try:
-            with open("notizen.txt", "r") as file:
-                notizen = file.readlines()
-            suchwort = input("Suchbegriff: ").lower()
-            gefunden = False
-            print("\nTreffer:")
-            for i, n in enumerate(notizen, start=1):
-                if suchwort in n.lower():
-                    print(f"{i}. {n.strip()}")
-                    gefunden = True
-            if not gefunden:
-                print("Keine Treffer gefunden.")
-        except FileNotFoundError:
-            print("Keine Notizen vorhanden.")
-        input("\nEnter drücken")
 
-    elif auswahl == "4":
-        loading("Beende Programm")
-        break
-
-    else:
-        print("Ungültige Eingabe")
-        input("Enter drücken")
+if __name__ == "__main__":
+    main()
